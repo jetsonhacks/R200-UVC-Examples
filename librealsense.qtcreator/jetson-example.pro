@@ -10,8 +10,10 @@ CONFIG += link_pkgconfig
 INCLUDEPATH += ../include
 LIBS += -pthread
 
-SOURCES += ../examples/jetson-example.cpp
-HEADERS += ../examples/example.hpp
+SOURCES += ../examples/jetson-example.cpp \
+    ../src/setupR200.c
+HEADERS += ../examples/example.hpp \
+    ../src/setupR200.h
 
 LIBS += -L$$DESTDIR/ -lrealsense
 

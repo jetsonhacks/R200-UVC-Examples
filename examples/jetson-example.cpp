@@ -1,9 +1,10 @@
-// Playing Around - jlb
+
 // License: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2015 Intel Corporation. All Rights Reserved.
 
 #include <librealsense/rs.hpp>
 #include "example.hpp"
+#include ".././src/setupR200.h"
 
 #include <sstream>
 #include <iostream>
@@ -17,9 +18,6 @@
 #include ".././src/device.h"
 #include ".././src/libuvc/libuvc.h"
 
-#define VENDOR_ID   0x8086
-#define PRODUCT_ID  0x0a80
-
 
 texture_buffer buffers[RS_STREAM_COUNT];
 bool align_depth_to_color = false;
@@ -28,107 +26,18 @@ bool color_rectification_enabled = false;
 
 #include <memory>
 
-void clearInterfaceHalt ( libusb_device_handle *dev_handle, int bInterfaceNumber, int bEndpointAddress) {
-    int result ;
-    if (libusb_kernel_driver_active(dev_handle,bInterfaceNumber)) {
-        libusb_detach_kernel_driver(dev_handle,bInterfaceNumber) ;
-    }
-
-    result = libusb_claim_interface(dev_handle,bInterfaceNumber) ;
-    if (result != 0) {
-        printf("Could not claim interface bInterfaceNumber %d! %d %s\n",bInterfaceNumber,result,libusb_error_name(result));
-    }
-    result = libusb_clear_halt(dev_handle,bEndpointAddress) ;
-    if (result != 0) {
-        printf("Could not clear halt on interface bInterfaceNumber: %d! %d %s\n",bInterfaceNumber,result,libusb_error_name(result));
-    }
-    result = libusb_release_interface(dev_handle,bInterfaceNumber) ;
-    if (result != 0) {
-        printf("Could not release interface bInterfaceNumber: %d! %d %s\n",bInterfaceNumber,result,libusb_error_name(result));
-    }
-    libusb_attach_kernel_driver(dev_handle,bInterfaceNumber) ;
-}
-
-void resetDevice ( void ) {
-    libusb_context          *context = NULL ;
-    libusb_device_handle    *dev_handle = NULL ;
-    libusb_device           **devs ;
-    int                     rc ;
-    ssize_t                 count ; // Number of devices in list
-    int ret ;
-
-    rc = libusb_init(&context);
-    // TODO Need to check to make sure libusb (rc) was initialized
-    count = libusb_get_device_list(context, &devs);
-    dev_handle = libusb_open_device_with_vid_pid(context,VENDOR_ID,PRODUCT_ID);
-    libusb_free_device_list(devs, 1); //free the list, unref the devices in it
-    if (dev_handle) {
-
-        int bpoint = 0 ;
-        int success = 0 ;
-        do {
-            success = libusb_reset_device(dev_handle) ;
-            ret = success ;
-            ++ bpoint ;
-            if (bpoint > 100) {
-                success = 1 ;
-            }
-
-        } while (success < 0 ) ;
-        if (success) {
-            printf("Unable to reset camera! %d %s\n", ret,libusb_error_name(ret));
-        } else {
-            printf("Camera Reset!\n") ;
-        }
-        libusb_close(dev_handle) ;
-    }
-    libusb_exit(context);
-}
-
-void clearHalts ( void ) {
-    libusb_context          *context = NULL ;
-    libusb_device_handle    *dev_handle = NULL ;
-    libusb_device           **devs ;
-    int                     rc ;
-    ssize_t                 count ; // Number of devices in list
-    int ret ;
-
-    rc = libusb_init(&context);
-    // TODO Need to check to make sure libusb (rc) was initialized
-    count = libusb_get_device_list(context, &devs);
-    dev_handle = libusb_open_device_with_vid_pid(context,VENDOR_ID,PRODUCT_ID);
-    libusb_free_device_list(devs, 1); //free the list, unref the devices in it
-    if (dev_handle) {
-        // Clear halts that might be on the video stream
-        // Infrared cameras
-        // clearInterfaceHalt(dev_handle,1,0x86) ;
-        // clearInterfaceHalt(dev_handle,2,0x82) ;
-        // Depth camera stream
-        clearInterfaceHalt(dev_handle,3,0x85) ;
-
-        // clearInterfaceHalt(dev_handle,4,0x81) ;
-        // Interface Number 5 is the color camera
-        clearInterfaceHalt(dev_handle,5,0x87) ;
-        libusb_close(dev_handle) ;
-     }
-
-    libusb_exit(context);
-}
-
 
 int main(int argc, char * argv[]) try
 {
     // rs::log_to_console(rs::log_severity::warn);
     //rs::log_to_file(rs::log_severity::debug, "librealsense.log");
-    if( access( "/tmp/reset-realsense", F_OK ) != -1 ) {
-        // file exists
-        unlink("/tmp/reset-realsense") ;
-        resetDevice();
-    } else {
-        // file doesn't exist ; means we've already run the program once since reboot
-        // Clear interface halts that may have accumulated on video streams
-        clearHalts();
-    }
+
+    //
+    // ADD THIS FOR THE Jetson TK1 Workarounds to take effect
+    // When the machine is first booted up, create the file /tmp/reset-realsense
+    // before running this app
+    //
+    r200JTK1Setup() ;
 
 
     rs::context ctx;
@@ -136,14 +45,9 @@ int main(int argc, char * argv[]) try
     rs::device & dev = *ctx.get_device(0);
 
 
-   //     dev.enable_stream(rs::stream::depth, rs::preset::best_quality);
-   //     dev.enable_stream(rs::stream::color, rs::preset::best_quality);
-   //     dev.enable_stream(rs::stream::infrared, rs::preset::best_quality);
-
     dev.enable_stream(rs::stream::depth, rs::preset::largest_image);
     dev.enable_stream(rs::stream::color, rs::preset::best_quality);
-    // dev.enable_stream(rs::stream::infrared, rs::preset::largest_image);
-    // try { dev.enable_stream(rs::stream::infrared2, 0, 0, rs::format::any, 0); } catch(...) {}
+
     bool aee = dev.get_option(rs::option::r200_lr_auto_exposure_enabled);
 
 
