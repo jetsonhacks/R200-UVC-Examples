@@ -37,7 +37,7 @@ int main(int argc, char * argv[]) try
     // When the machine is first booted up, create the file /tmp/reset-realsense
     // before running this app
     //
-    r200JTK1Setup() ;
+    r200JetsonSetup() ;
 
 
     rs::context ctx;
